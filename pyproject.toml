@@ -1,0 +1,13 @@
+[project]
+name = "av1-spatial-temporal"
+version = "0.1.0"
+description = "AV1 spatial and temporal scalability POC tooling"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+av1-svc = "av1_spatial_temporal.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["av1_spatial_temporal*"]
