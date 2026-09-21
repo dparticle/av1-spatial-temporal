@@ -23,6 +23,7 @@ from .encoder import (
     parse_fraction,
     probe_video,
 )
+from .encoder_legacy import target_bitrate_kbps
 from .obu import analyze_obu_stream
 
 
@@ -40,7 +41,7 @@ def _validate_config(config: EncodeConfig, width: int, height: int) -> None:
         raise ValueError("keyframe_distance must be positive")
     if not 0 <= config.min_q <= config.max_q <= 63:
         raise ValueError("quantizers must satisfy 0 <= min_q <= max_q <= 63")
-    if config.bitrate_kbps < config.spatial_layers * config.temporal_layers:
+    if config.bitrate_kbps is not None and config.bitrate_kbps < config.spatial_layers * config.temporal_layers:
         raise ValueError("bitrate_kbps is too small for the selected layer count")
     for num, den in DEFAULT_SCALE_FACTORS[config.spatial_layers]:
         layer_width = width * num // den
@@ -85,8 +86,9 @@ def encode_av1_svc(
     _validate_config(config, width, height)
     mode = layering_mode(config.spatial_layers, config.temporal_layers)
     scales = DEFAULT_SCALE_FACTORS[config.spatial_layers]
+    bitrate_kbps = target_bitrate_kbps(config.bitrate_kbps, input_path, source_info)
     bitrates = allocate_bitrates(
-        config.bitrate_kbps,
+        bitrate_kbps,
         config.spatial_layers,
         config.temporal_layers,
         scales,
@@ -135,7 +137,7 @@ def encode_av1_svc(
         f"--width={width}",
         f"--height={height}",
         f"--timebase={fps.denominator}/{fps.numerator}",
-        f"--target-bitrate={config.bitrate_kbps}",
+        f"--target-bitrate={bitrate_kbps}",
         f"--bitrates={','.join(map(str, bitrates))}",
         f"--spatial-layers={config.spatial_layers}",
         f"--temporal-layers={config.temporal_layers}",
@@ -228,6 +230,7 @@ def encode_av1_svc(
                 "fps": f"{fps.numerator}/{fps.denominator}",
                 "layering_mode": mode,
                 "scale_factors": [f"{n}/{d}" for n, d in scales],
+                "target_bitrate_kbps": bitrate_kbps,
                 "layer_bitrates_kbps": list(bitrates),
                 "frame_limit_enforced_by": "ffmpeg",
             },
@@ -262,4 +265,3 @@ __all__ = [
     "parse_fraction",
     "probe_video",
 ]
-

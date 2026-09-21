@@ -57,11 +57,11 @@ python -m av1_spatial_temporal --help
 python -m av1_spatial_temporal poc input.mp4 `
   -o demo_output `
   --spatial-layers 2 `
-  --temporal-layers 3 `
-  --bitrate-kbps 3000
+  --temporal-layers 3
 ```
 
 该命令依次完成编码、拆层、基层物化、合层、SHA-256 逐字节校验，以及所有操作点的 FFmpeg 解码校验。最终结果写入 `demo_output/poc_report.json`。
+默认使用源文件平均码率（文件字节数除以时长）的 1.1 倍作为 CBR 总目标码率、速度 6、L2T3 时间层累计比例 50/75/100；可用 `--bitrate-kbps` 指定目标码率。若输入文件包含音频，自动估计的文件码率也包含音频和容器开销；需要精确限定视频码率时请显式指定。
 
 也可以安装为命令：
 
@@ -76,7 +76,7 @@ av1-svc --help
 
 ```powershell
 python -m av1_spatial_temporal encode input.mp4 -o encoded \
-  --spatial-layers 2 --temporal-layers 3 --bitrate-kbps 3000
+  --spatial-layers 2 --temporal-layers 3
 ```
 
 把完整 OBU 拆成基层和增强层传输通道：

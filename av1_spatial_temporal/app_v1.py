@@ -28,12 +28,15 @@ def _add_encode_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-o", "--output-dir", type=Path, required=True)
     parser.add_argument("--spatial-layers", type=int, choices=(1, 2, 3), default=2)
     parser.add_argument("--temporal-layers", type=int, choices=(1, 2, 3), default=3)
-    parser.add_argument("--bitrate-kbps", type=int, default=3000)
+    parser.add_argument(
+        "--bitrate-kbps", type=int,
+        help="目标总码率（kbps）；省略时使用源文件平均码率的 1.1 倍",
+    )
     parser.add_argument("--width", type=int)
     parser.add_argument("--height", type=int)
     parser.add_argument("--fps", type=parse_fraction, help="例如 30 或 30000/1001")
     parser.add_argument("--frames", type=int, help="只编码前 N 帧")
-    parser.add_argument("--speed", type=int, default=9)
+    parser.add_argument("--speed", type=int, default=6)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--keyframe-distance", type=int, default=120)
     parser.add_argument("--min-q", type=int, default=2)
@@ -213,4 +216,3 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     _print_report(report)
     return 0
-

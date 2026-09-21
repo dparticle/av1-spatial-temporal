@@ -31,8 +31,8 @@ DEFAULT_SCALE_FACTORS = {
 
 TEMPORAL_CUMULATIVE_RATIOS = {
     1: (1.0,),
-    2: (0.5, 1.0),
-    3: (0.25, 0.5, 1.0),
+    2: (0.5, 1.0), # 未测试是否最优
+    3: (0.5, 0.75, 1.0),
 }
 
 
@@ -59,12 +59,12 @@ class VideoInfo:
 class EncodeConfig:
     spatial_layers: int = 2
     temporal_layers: int = 3
-    bitrate_kbps: int = 3000
+    bitrate_kbps: int | None = None
     width: int | None = None
     height: int | None = None
     fps: Fraction | None = None
     frames: int | None = None
-    speed: int = 9
+    speed: int = 6
     threads: int = 4
     keyframe_distance: int = 120
     min_q: int = 2
@@ -182,6 +182,27 @@ def probe_video(path: Path, ffprobe: Path) -> VideoInfo:
     )
 
 
+def source_bitrate_kbps(path: Path, source_info: VideoInfo) -> int:
+    """Average source-file bitrate, matching FFprobe's format bitrate."""
+    duration = source_info.duration_seconds
+    if duration is None or duration <= 0:
+        raise EncoderError(
+            "Cannot infer source bitrate without a duration; "
+            "pass --bitrate-kbps explicitly"
+        )
+    return max(1, round(path.stat().st_size * 8 / duration / 1000))
+
+
+def target_bitrate_kbps(
+    configured_bitrate_kbps: int | None,
+    path: Path,
+    source_info: VideoInfo,
+) -> int:
+    if configured_bitrate_kbps is not None:
+        return configured_bitrate_kbps
+    return max(1, round(source_bitrate_kbps(path, source_info) * 1.1))
+
+
 def layering_mode(spatial_layers: int, temporal_layers: int) -> int:
     try:
         return LAYERING_MODES[(spatial_layers, temporal_layers)]
@@ -291,8 +312,9 @@ def encode_av1_svc(
     _validate_config(config, width, height)
     mode = layering_mode(config.spatial_layers, config.temporal_layers)
     scales = DEFAULT_SCALE_FACTORS[config.spatial_layers]
+    bitrate_kbps = target_bitrate_kbps(config.bitrate_kbps, input_path, source_info)
     bitrates = allocate_bitrates(
-        config.bitrate_kbps,
+        bitrate_kbps,
         config.spatial_layers,
         config.temporal_layers,
         scales,
@@ -341,7 +363,7 @@ def encode_av1_svc(
         f"--width={width}",
         f"--height={height}",
         f"--timebase={fps.denominator}/{fps.numerator}",
-        f"--target-bitrate={config.bitrate_kbps}",
+        f"--target-bitrate={bitrate_kbps}",
         f"--bitrates={','.join(map(str, bitrates))}",
         f"--spatial-layers={config.spatial_layers}",
         f"--temporal-layers={config.temporal_layers}",
@@ -434,6 +456,7 @@ def encode_av1_svc(
                 "fps": f"{fps.numerator}/{fps.denominator}",
                 "layering_mode": mode,
                 "scale_factors": [f"{n}/{d}" for n, d in scales],
+                "target_bitrate_kbps": bitrate_kbps,
                 "layer_bitrates_kbps": list(bitrates),
             },
             "config": serializable_config,
@@ -452,4 +475,3 @@ def encode_av1_svc(
         return report
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-
